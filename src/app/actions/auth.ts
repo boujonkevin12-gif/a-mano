@@ -40,6 +40,10 @@ export async function registerAction(_previousState: ActionState, formData: Form
       },
     });
     if (error) {
+      console.error("[auth.register] Supabase signUp failed", {
+        code: error.code,
+        status: error.status,
+      });
       return { status: "error", message: "No pudimos crear la cuenta. Revisá el correo, la contraseña o intentá más tarde." };
     }
     return { status: "success", message: "Si el correo puede registrarse, te va a llegar un mensaje para confirmar la cuenta." };

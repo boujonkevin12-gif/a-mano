@@ -36,6 +36,45 @@ describe("acciones de autenticación", () => {
     }));
   });
 
+  it("registra solo código y estado del error de Supabase y conserva el mensaje genérico", async () => {
+    const diagnostic = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const signUp = vi.fn().mockResolvedValue({
+      error: {
+        code: "over_email_send_rate_limit",
+        status: 429,
+        message: "Sensitive upstream details",
+      },
+    });
+    mocks.createSupabaseServerClient.mockResolvedValue({ auth: { signUp } });
+    mocks.getSupabaseConfig.mockReturnValue({ appUrl: "https://amano.example" });
+    const form = new FormData();
+    form.set("displayName", "Private User Name");
+    form.set("email", "private-user@example.invalid");
+    form.set("password", "Sensitive-Password-123!");
+
+    try {
+      const result = await registerAction({ status: "idle" }, form);
+
+      expect(result).toEqual({
+        status: "error",
+        message: "No pudimos crear la cuenta. Revisá el correo, la contraseña o intentá más tarde.",
+      });
+      expect(diagnostic).toHaveBeenCalledOnce();
+      expect(diagnostic).toHaveBeenCalledWith("[auth.register] Supabase signUp failed", {
+        code: "over_email_send_rate_limit",
+        status: 429,
+      });
+
+      const loggedOutput = JSON.stringify(diagnostic.mock.calls);
+      expect(loggedOutput).not.toContain("private-user@example.invalid");
+      expect(loggedOutput).not.toContain("Sensitive-Password-123!");
+      expect(loggedOutput).not.toContain("Private User Name");
+      expect(loggedOutput).not.toContain("Sensitive upstream details");
+    } finally {
+      diagnostic.mockRestore();
+    }
+  });
+
   it("inicia sesión y redirige solo a una ruta interna validada", async () => {
     const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
     mocks.createSupabaseServerClient.mockResolvedValue({ auth: { signInWithPassword } });
