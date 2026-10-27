@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeArgentinaWhatsapp } from "@/lib/whatsapp";
 
 const email = z.email({ error: "Ingresá un correo electrónico válido." }).trim().max(254);
 const password = z.string().min(10, "La contraseña debe tener al menos 10 caracteres.").max(64, "La contraseña no puede superar los 64 caracteres.");
@@ -25,11 +26,19 @@ export const profileSchema = z.object({
 export const professionalSchema = z.object({
   businessName: z.string().trim().min(2, "Ingresá el nombre de tu servicio.").max(100, "El nombre puede tener hasta 100 caracteres."),
   description: z.string().trim().min(20, "Contanos un poco más: escribí al menos 20 caracteres.").max(2000, "La descripción puede tener hasta 2000 caracteres."),
-  whatsappPhone: phone,
+  whatsappNationalNumber: z.string().trim().max(24, "Revisá el código de área y el número."),
+  whatsappKind: z.enum(["mobile", "landline"]),
   city: z.string().trim().min(2, "Ingresá tu ciudad.").max(100, "La ciudad puede tener hasta 100 caracteres."),
   serviceArea: z.string().trim().min(2, "Indicá tu zona de atención.").max(250, "La zona puede tener hasta 250 caracteres."),
   categorySlugs: z.array(z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Elegí una categoría válida.")).min(1, "Elegí al menos una categoría.").max(5, "Podés elegir hasta cinco categorías."),
-});
+}).superRefine((data, context) => {
+  if (data.whatsappNationalNumber !== "" && !normalizeArgentinaWhatsapp(data.whatsappNationalNumber, data.whatsappKind)) {
+    context.addIssue({ code: "custom", path: ["whatsappNationalNumber"], message: "Ingresá 10 dígitos de código de área y número, sin 0 inicial ni 15. Ejemplo: 3442 123456." });
+  }
+}).transform(({ whatsappNationalNumber, whatsappKind, ...data }) => ({
+  ...data,
+  whatsappPhone: normalizeArgentinaWhatsapp(whatsappNationalNumber, whatsappKind),
+}));
 
 export const moderationSchema = z.object({
   professionalId: z.uuid({ error: "El perfil seleccionado no es válido." }),
@@ -43,6 +52,7 @@ export type ActionState = {
   status: "idle" | "error" | "success";
   message?: string;
   fieldErrors?: Record<string, string[]>;
+  professionalId?: string;
 };
 
 export const idleActionState: ActionState = { status: "idle" };

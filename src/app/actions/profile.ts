@@ -34,7 +34,8 @@ export async function saveProfessionalAction(_previousState: ActionState, formDa
   const parsed = professionalSchema.safeParse({
     businessName: readString(formData, "businessName"),
     description: readString(formData, "description"),
-    whatsappPhone: readString(formData, "whatsappPhone"),
+    whatsappNationalNumber: readString(formData, "whatsappNationalNumber"),
+    whatsappKind: readString(formData, "whatsappKind"),
     city: readString(formData, "city"),
     serviceArea: readString(formData, "serviceArea"),
     categorySlugs: readStrings(formData, "categorySlugs"),
@@ -46,7 +47,7 @@ export async function saveProfessionalAction(_previousState: ActionState, formDa
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) return { status: "error", message: "La sesión venció. Iniciá sesión de nuevo y repetí el envío." };
-    const { error } = await supabase.rpc("submit_own_professional_profile", {
+    const { data: professionalId, error } = await supabase.rpc("submit_own_professional_profile", {
       p_slug: `${slugify(parsed.data.businessName)}-${user.id}`,
       p_business_name: parsed.data.businessName,
       p_description: parsed.data.description,
@@ -55,10 +56,10 @@ export async function saveProfessionalAction(_previousState: ActionState, formDa
       p_service_area: parsed.data.serviceArea,
       p_category_slugs: parsed.data.categorySlugs,
     });
-    if (error) return { status: "error", message: "No pudimos enviar el perfil para revisión. Revisá las categorías y volvé a intentar." };
+    if (error || !professionalId) return { status: "error", message: "No pudimos enviar el perfil para revisión. Revisá las categorías y volvé a intentar." };
     revalidatePath("/cuenta");
     revalidatePath("/publicar");
-    return { status: "success", message: "Guardamos tu perfil y quedó pendiente de revisión. Todavía no aparece en los resultados." };
+    return { status: "success", message: "Guardamos tu perfil y quedó pendiente de revisión. Todavía no aparece en los resultados.", professionalId };
   } catch {
     return { status: "error", message: "No pudimos conectar con el servicio. Tus datos siguen en el formulario; probá de nuevo." };
   }

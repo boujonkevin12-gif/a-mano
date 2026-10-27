@@ -1,14 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { IMAGE_BUCKET } from "@/lib/images/validation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-type Props = { path: string | null; alt: string; width: number; height: number; className?: string };
+type Props = { path: string | null; alt: string; width: number; height: number; className?: string; fallback?: ReactNode };
 
 /** Downloads only after entering the viewport; Storage RLS authorizes each request. */
-export function StorageImage({ path, alt, width, height, className }: Props) {
+export function StorageImage({ path, alt, width, height, className, fallback }: Props) {
   const container = useRef<HTMLSpanElement>(null);
   const [source, setSource] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -38,6 +39,6 @@ export function StorageImage({ path, alt, width, height, className }: Props) {
   }, [path]);
 
   return <span ref={container} className={className} aria-busy={!source && !failed}>
-    {source ? <Image unoptimized src={source} alt={alt} width={width} height={height} /> : failed ? <span className="photo-unavailable" role="img" aria-label="Imagen no disponible">Imagen no disponible</span> : <span className="photo-image-placeholder" aria-hidden="true" />}
+    {source ? <Image unoptimized src={source} alt={alt} width={width} height={height} /> : failed && fallback ? <span className="photo-image-fallback" role="img" aria-label={alt}>{fallback}</span> : failed ? <span className="photo-unavailable" role="img" aria-label="Imagen no disponible">Imagen no disponible</span> : <span className="photo-image-placeholder" aria-hidden="true" />}
   </span>;
 }
